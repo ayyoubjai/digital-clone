@@ -24,7 +24,7 @@ are deliberately excluded from Git.
 - An NVIDIA GPU supported by the selected Ditto TensorRT engines
 - A compatible NVIDIA driver
 - Docker Engine with the NVIDIA Container Toolkit
-- Git and Git LFS
+- Git and curl
 - Roughly 30 GB of free disk space for the image, checkpoints, and model cache
 
 The supplied Ditto engines target **Ampere or newer** GPUs. Other architectures
@@ -44,7 +44,8 @@ git clone --recurse-submodules <your-github-repository-url>
 cd digital-clone
 ```
 
-Download the Ditto configuration and Ampere+ TensorRT engines:
+Download the pinned Ditto configuration and Ampere+ TensorRT engines. The
+script resumes interrupted downloads and verifies every file:
 
 ```bash
 ./scripts/download-models.sh
