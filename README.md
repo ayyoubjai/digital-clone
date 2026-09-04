@@ -84,6 +84,11 @@ To force an image rebuild after changing dependencies:
 ./scripts/run-docker.sh --build --mode offline
 ```
 
+The build uses the Linux host network for package downloads. This avoids the
+common case where the host DNS works but Docker's bridge resolver cannot reach
+Ubuntu, NVIDIA, PyTorch, or PyPI. If name resolution still fails, fix the Docker
+daemon's DNS configuration and restart Docker before retrying.
+
 ## Rendering modes
 
 Offline mode is the recommended synchronized path:

@@ -7,7 +7,7 @@ models:
 	./scripts/download-models.sh
 
 build:
-	docker build -t digital-clone:local .
+	docker build --network host -t digital-clone:local .
 
 run:
 	./scripts/run-docker.sh --mode offline --style cinematic

@@ -18,7 +18,10 @@ mkdir -p \
     "${repo_root}/vendors/Ditto/checkpoints"
 
 if [[ "${force_build}" == "1" ]] || ! docker image inspect "${image_name}" >/dev/null 2>&1; then
-    docker build -t "${image_name}" "${repo_root}"
+    # Some Linux Docker installations have broken bridge DNS even though the
+    # host resolves normally. Builds need network only for apt/pip downloads,
+    # so using the host network avoids that daemon DNS mismatch.
+    docker build --network host -t "${image_name}" "${repo_root}"
 fi
 
 host_uid="$(id -u)"

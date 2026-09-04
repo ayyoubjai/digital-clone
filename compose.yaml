@@ -2,6 +2,7 @@ services:
   digital-clone:
     build:
       context: .
+      network: host
     image: digital-clone:local
     gpus: all
     stdin_open: true
