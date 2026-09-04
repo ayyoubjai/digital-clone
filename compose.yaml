@@ -1,0 +1,19 @@
+services:
+  digital-clone:
+    build:
+      context: .
+    image: digital-clone:local
+    gpus: all
+    stdin_open: true
+    tty: true
+    ipc: host
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      HOME: /tmp
+      HF_HOME: /cache/huggingface
+    volumes:
+      - ./inputs:/app/inputs:ro
+      - ./outputs:/app/outputs
+      - ./vendors/Ditto/checkpoints:/app/vendors/Ditto/checkpoints:ro
+      - ./.cache/huggingface:/cache/huggingface
+    command: ["--mode", "offline", "--no-playback", "--style", "cinematic"]

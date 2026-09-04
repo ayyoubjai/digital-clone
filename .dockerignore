@@ -1,0 +1,10 @@
+.git
+.gitmodules
+.runtime
+.cache
+outputs
+inputs
+vendors/Ditto/checkpoints
+**/__pycache__
+**/*.pyc
+.env

@@ -1,0 +1,9 @@
+# Torch/Torchaudio are installed separately from the official CUDA 12.1 index.
+qwen-tts==0.1.1
+transformers==4.57.3
+accelerate==1.12.0
+librosa==0.11.0
+soundfile==0.14.0
+sox==1.5.0
+onnxruntime==1.23.2
+einops==0.8.2

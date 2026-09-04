@@ -1,0 +1,27 @@
+# Private biometric inputs
+inputs/*
+!inputs/.gitkeep
+!inputs/voice_refs/
+inputs/voice_refs/*
+!inputs/voice_refs/.gitkeep
+
+# Generated media and runtime state
+outputs/*
+!outputs/.gitkeep
+.cache/*
+!.cache/huggingface/
+.cache/huggingface/*
+!.cache/huggingface/.gitkeep
+.runtime/
+
+# Model weights live inside the Ditto submodule and are intentionally ignored
+vendors/Ditto/checkpoints/
+
+# Native environments are not part of the containerized repository
+.venv*/
+.deps/
+
+__pycache__/
+*.py[cod]
+.env
+.DS_Store

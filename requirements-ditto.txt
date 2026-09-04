@@ -1,0 +1,15 @@
+# Ditto's official TensorRT runtime dependencies, pinned to the tested setup.
+tensorrt==8.6.1
+cuda-python==12.6.2.post1
+numpy==2.0.1
+librosa==0.11.0
+tqdm==4.70.0
+filetype==1.2.0
+imageio==2.37.4
+imageio-ffmpeg==0.6.0
+opencv-python-headless==5.0.0.93
+scikit-image==0.25.2
+Cython==3.3.0
+colored==2.3.2
+polygraphy==0.53.4
+onnxruntime-gpu==1.23.2
