@@ -72,6 +72,11 @@ Run the desktop container:
 The first run builds the image and downloads the Qwen model into
 `.cache/huggingface`. Later runs reuse both caches.
 
+If Docker reports permission denied for `/var/run/docker.sock`, configure your
+normal user for Docker daemon access using Docker's official post-installation
+instructions, then sign out and back in. The runner intentionally does not
+silently elevate itself with `sudo`.
+
 To force an image rebuild after changing dependencies:
 
 ```bash
