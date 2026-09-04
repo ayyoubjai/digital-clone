@@ -133,6 +133,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 
 counter = 0
+session_tag = time.strftime("%Y%m%d_%H%M%S")
 
 emit({
     "type": "ready",
@@ -172,7 +173,7 @@ for line in sys.stdin:
 
     counter += 1
 
-    output = output_dir / f"speech_{counter:05d}.wav"
+    output = output_dir / f"speech_{session_tag}_{counter:05d}.wav"
 
     print(
         f"Generating: {text!r}",

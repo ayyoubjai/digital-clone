@@ -76,6 +76,7 @@ emit({
 
 
 counter = 0
+session_tag = time.strftime("%Y%m%d_%H%M%S")
 
 for line in sys.stdin:
     line = line.strip()
@@ -101,7 +102,10 @@ for line in sys.stdin:
     request_id = msg.get("id")
     audio_path = Path(msg["path"]).resolve()
     counter += 1
-    output_path = output_dir / f"ditto_offline_{counter:05d}.mp4"
+    output_path = (
+        output_dir
+        / f"ditto_offline_{session_tag}_{counter:05d}.mp4"
+    )
 
     started = time.perf_counter()
 

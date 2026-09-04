@@ -99,7 +99,7 @@ class StartupProgress:
 
         percent = round(completed / self.total * 100)
         sys.stdout.write(
-            f"\r\033[2K  [{' '.join(cells)}] {percent:3d}%  {label}"
+            f"\r\033[2K  [{''.join(cells)}] {percent:3d}%  {label}"
         )
         sys.stdout.flush()
 

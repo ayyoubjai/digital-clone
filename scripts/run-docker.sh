@@ -45,10 +45,11 @@ if [[ -n "${DISPLAY:-}" ]]; then
         -v /tmp/.X11-unix:/tmp/.X11-unix:ro
     )
 
-    if [[ -n "${XAUTHORITY:-}" && -f "${XAUTHORITY}" ]]; then
+    xauthority_path="${XAUTHORITY:-${HOME}/.Xauthority}"
+    if [[ -f "${xauthority_path}" ]]; then
         docker_args+=(
-            -e XAUTHORITY
-            -v "${XAUTHORITY}:${XAUTHORITY}:ro"
+            -e XAUTHORITY=/tmp/.Xauthority
+            -v "${xauthority_path}:/tmp/.Xauthority:ro"
         )
     fi
 else

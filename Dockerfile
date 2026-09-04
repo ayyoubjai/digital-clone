@@ -15,6 +15,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
+        build-essential \
         git \
         git-lfs \
         gir1.2-gstreamer-1.0 \
@@ -25,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gstreamer1.0-plugins-ugly \
         gstreamer1.0-pulseaudio \
         gstreamer1.0-tools \
+        gstreamer1.0-x \
         libgl1 \
         libglib2.0-0 \
         libsm6 \
@@ -35,6 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python${PYTHON_VERSION} \
         python${PYTHON_VERSION}-dev \
         python${PYTHON_VERSION}-venv \
+        sox \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
