@@ -78,6 +78,13 @@ normal user for Docker daemon access using Docker's official post-installation
 instructions, then sign out and back in. The runner intentionally does not
 silently elevate itself with `sudo`.
 
+As a temporary alternative, preserve the desktop variables explicitly:
+
+```bash
+sudo --preserve-env=DISPLAY,XAUTHORITY,XDG_RUNTIME_DIR \
+  ./scripts/run-docker.sh --mode offline
+```
+
 To force an image rebuild after changing dependencies:
 
 ```bash
