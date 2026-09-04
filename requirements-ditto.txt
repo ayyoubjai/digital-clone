@@ -1,5 +1,4 @@
 # Ditto's official TensorRT runtime dependencies, pinned to the tested setup.
-tensorrt==8.6.1
 cuda-python==12.6.2.post1
 numpy==2.0.1
 librosa==0.11.0

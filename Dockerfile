@@ -48,20 +48,39 @@ WORKDIR /app
 COPY requirements-ditto.txt requirements-qwen.txt ./
 
 RUN python${PYTHON_VERSION} -m venv /opt/venvs/ditto \
-    && /opt/venvs/ditto/bin/pip install --upgrade pip setuptools wheel \
-    && /opt/venvs/ditto/bin/pip install \
+    && /opt/venvs/ditto/bin/pip install --upgrade pip setuptools wheel packaging
+
+RUN /opt/venvs/ditto/bin/pip install \
         torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121 \
-    && /opt/venvs/ditto/bin/pip install \
+        --index-url https://download.pytorch.org/whl/cu121
+
+RUN /opt/venvs/ditto/bin/pip install \
         --extra-index-url https://pypi.nvidia.com \
         -r requirements-ditto.txt
 
+# TensorRT 8.6's legacy meta-package launches a nested `python -m pip` while
+# building its tiny wrapper wheel. Installing the real components first and
+# disabling PEP 517 build isolation keeps pip visible to that installer.
+RUN /opt/venvs/ditto/bin/pip install \
+        --extra-index-url https://pypi.nvidia.com \
+        tensorrt-libs==8.6.1 tensorrt-bindings==8.6.1
+
+RUN /opt/venvs/ditto/bin/pip install \
+        --no-build-isolation \
+        --no-deps \
+        --extra-index-url https://pypi.nvidia.com \
+        tensorrt==8.6.1 \
+    && /opt/venvs/ditto/bin/python -c \
+        "import tensorrt; assert tensorrt.__version__ == '8.6.1'"
+
 RUN python${PYTHON_VERSION} -m venv /opt/venvs/qwen \
-    && /opt/venvs/qwen/bin/pip install --upgrade pip setuptools wheel \
-    && /opt/venvs/qwen/bin/pip install \
+    && /opt/venvs/qwen/bin/pip install --upgrade pip setuptools wheel
+
+RUN /opt/venvs/qwen/bin/pip install \
         torch==2.5.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121 \
-    && /opt/venvs/qwen/bin/pip install -r requirements-qwen.txt
+        --index-url https://download.pytorch.org/whl/cu121
+
+RUN /opt/venvs/qwen/bin/pip install -r requirements-qwen.txt
 
 COPY . /app
 
