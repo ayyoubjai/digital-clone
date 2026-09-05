@@ -24,7 +24,7 @@ ROOT = Path(
 class StartupProgress:
     """Small dependency-free progress display for model initialization."""
 
-    def __init__(self, total, enabled=True):
+    def __init__(self, total, enabled=True, visual_callback=None):
         self.total = total
         self.completed = 0
         self.label = "Preparing"
@@ -33,6 +33,10 @@ class StartupProgress:
         self.lock = threading.Lock()
         self.thread = None
         self.tick = 0
+        self.visual_callback = visual_callback
+
+    def set_visual_callback(self, callback):
+        self.visual_callback = callback
 
     def start(self, label):
         with self.lock:
@@ -40,6 +44,9 @@ class StartupProgress:
 
         if not self.enabled:
             print(f"Initializing: {label}...")
+        self._render_visual()
+
+        if not self.enabled:
             return
 
         if self.thread is None:
@@ -56,6 +63,7 @@ class StartupProgress:
 
         if not self.enabled:
             print(f"  ✓ {label}")
+        self._render_visual()
 
     def finish(self):
         with self.lock:
@@ -69,6 +77,7 @@ class StartupProgress:
                 self.thread.join(timeout=1)
             sys.stdout.write("\n")
             sys.stdout.flush()
+        self._render_visual()
 
     def close(self):
         if not self.enabled:
@@ -103,6 +112,14 @@ class StartupProgress:
             f"\r\033[2K  [{''.join(cells)}] {percent:3d}%  {label}"
         )
         sys.stdout.flush()
+
+    def _render_visual(self):
+        if self.visual_callback is None:
+            return
+        with self.lock:
+            completed = self.completed
+            label = self.label
+        self.visual_callback(completed, self.total, label)
 
 
 class Service:
@@ -323,11 +340,16 @@ class MpvOfflinePlayer:
                 "--force-window=yes",
                 "--keep-open=yes",
                 "--keep-open-pause=no",
+                "--image-display-duration=inf",
                 "--osc=no",
                 "--terminal=no",
                 "--really-quiet",
                 "--hwdec=no",
                 "--audio-display=no",
+                "--background-color=#0B0F19",
+                "--osd-align-x=center",
+                "--osd-align-y=center",
+                "--osd-font-size=28",
                 "--title=Digital Clone",
                 f"--input-ipc-server={self.socket_path}",
             ],
@@ -364,6 +386,51 @@ class MpvOfflinePlayer:
         self.client.sendall(
             (json.dumps(message) + "\n").encode("utf-8")
         )
+
+    def show_progress(self, completed, total, label):
+        width = 24
+        filled = round(width * completed / total)
+        bar = "━" * filled + "─" * (width - filled)
+        percent = round(completed / total * 100)
+        self._send({
+            "command": [
+                "show-text",
+                f"DIGITAL CLONE\n\n[{bar}]  {percent}%\n\n{label}",
+                600000,
+            ],
+        })
+
+    def show_avatar(self, path):
+        if self.proc.poll() is not None:
+            raise RuntimeError("The persistent MPV window was closed")
+
+        self.request_id += 1
+        request_id = self.request_id
+        self._send({
+            "command": ["loadfile", str(Path(path).resolve()), "replace"],
+            "request_id": request_id,
+        })
+
+        while True:
+            line = self.reader.readline()
+            if not line:
+                raise RuntimeError("MPV playback connection closed")
+
+            message = json.loads(line)
+            if message.get("request_id") == request_id:
+                error = message.get("error")
+                if error and error != "success":
+                    raise RuntimeError(
+                        f"MPV could not load the avatar: {error}"
+                    )
+
+            if message.get("event") == "file-loaded":
+                self._send({
+                    "command": ["show-text", "", 1],
+                })
+                return
+            if message.get("event") == "shutdown":
+                raise RuntimeError("The persistent MPV window was closed")
 
     def play(self, path, duration):
         del duration  # MPV reports the actual end of the muxed file.
@@ -894,6 +961,9 @@ offline_player = (
     else None
 )
 
+if isinstance(offline_player, MpvOfflinePlayer):
+    startup.set_visual_callback(offline_player.show_progress)
+
 
 try:
 
@@ -930,6 +1000,9 @@ try:
 
     startup.complete("Voice model ready")
     startup.finish()
+
+    if isinstance(offline_player, MpvOfflinePlayer):
+        offline_player.show_avatar(args.avatar)
 
 
     print("=" * 60)
@@ -1053,6 +1126,8 @@ try:
                     video["path"],
                     video["duration"],
                 )
+                if isinstance(offline_player, MpvOfflinePlayer):
+                    offline_player.show_avatar(args.avatar)
             print(f"  ✓ Saved: {video['path']}")
             print()
 

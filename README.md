@@ -153,7 +153,13 @@ The custom chain overrides `--style`.
 
 ## Startup interface
 
-The CLI displays one animated initialization bar while Ditto and Qwen load:
+The terminal and persistent video window display initialization progress while
+Ditto and Qwen load. When both models are ready, the window replaces the startup
+screen with the configured avatar image before the first `you>` prompt. After
+each response finishes playing, it returns to that avatar image while waiting
+for the next message.
+
+The terminal version uses an animated bar:
 
 ```text
 Starting digital clone (offline mode)...
