@@ -327,7 +327,15 @@ class OfflinePlayer:
         if self.player is None:
             raise RuntimeError("GStreamer playbin3 is unavailable")
 
-        self.player.set_property("instant-uri", True)
+        # GStreamer 1.22+ can replace the URI while playbin3 remains PLAYING,
+        # which preserves one native window between responses. Ubuntu 22.04's
+        # GStreamer 1.20 does not expose this property, so detect it instead of
+        # failing during startup and use a READY transition between clips.
+        self.instant_uri = (
+            self.player.find_property("instant-uri") is not None
+        )
+        if self.instant_uri:
+            self.player.set_property("instant-uri", True)
         self.bus = self.player.get_bus()
         self.started = False
 
@@ -336,6 +344,14 @@ class OfflinePlayer:
         del duration  # GStreamer waits for the file's real EOS instead.
 
         Gst = self.Gst
+        if self.started and not self.instant_uri:
+            state_result = self.player.set_state(Gst.State.READY)
+            if state_result == Gst.StateChangeReturn.FAILURE:
+                raise RuntimeError(
+                    "GStreamer could not prepare the next offline video"
+                )
+            self.player.get_state(Gst.SECOND * 3)
+
         self.player.set_property(
             "uri",
             Path(path).resolve().as_uri(),
@@ -345,7 +361,7 @@ class OfflinePlayer:
         # remains in PLAYING. Avoiding READY/PAUSED is what keeps the native
         # video window alive between completed files.
         state_result = Gst.StateChangeReturn.SUCCESS
-        if not self.started:
+        if not self.started or not self.instant_uri:
             state_result = self.player.set_state(Gst.State.PLAYING)
             self.started = True
 
@@ -363,8 +379,9 @@ class OfflinePlayer:
                 + (f" ({debug})" if debug else "")
             )
 
-        # Stay in PLAYING at EOS. The sink retains its native window and final
-        # frame; assigning the next URI starts that file in the same window.
+        # With instant-uri, stay in PLAYING at EOS so the sink retains its
+        # native window and final frame. Older GStreamer releases transition
+        # through READY only when the next clip is assigned above.
 
 
     def close(self):
