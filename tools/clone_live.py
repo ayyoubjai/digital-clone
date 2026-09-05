@@ -342,6 +342,8 @@ class MpvOfflinePlayer:
                 "--force-window=yes",
                 "--keep-open=yes",
                 "--keep-open-pause=no",
+                "--auto-window-resize=no",
+                "--keepaspect-window=no",
                 "--image-display-duration=inf",
                 "--osc=no",
                 "--hwdec=no",
