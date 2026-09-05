@@ -332,21 +332,20 @@ class MpvOfflinePlayer:
         )
         self.socket_path.unlink(missing_ok=True)
         self.request_id = 0
+        self.diagnostics = deque(maxlen=40)
 
         self.proc = subprocess.Popen(
             [
                 "mpv",
+                "--no-config",
                 "--idle=yes",
                 "--force-window=yes",
                 "--keep-open=yes",
                 "--keep-open-pause=no",
                 "--image-display-duration=inf",
                 "--osc=no",
-                "--terminal=no",
-                "--really-quiet",
                 "--hwdec=no",
                 "--audio-display=no",
-                "--background-color=#0B0F19",
                 "--osd-align-x=center",
                 "--osd-align-y=center",
                 "--osd-font-size=28",
@@ -355,13 +354,27 @@ class MpvOfflinePlayer:
             ],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
         )
+        stderr_stream = self.proc.stderr
+        self.stderr_thread = threading.Thread(
+            target=self._read_stderr,
+            args=(stderr_stream,),
+            name="mpv-stderr",
+            daemon=True,
+        )
+        self.stderr_thread.start()
 
         deadline = time.monotonic() + 10
         while True:
             if self.proc.poll() is not None:
-                raise RuntimeError("MPV exited before opening its window")
+                self.stderr_thread.join(timeout=0.2)
+                detail = self.diagnostics[-1] if self.diagnostics else None
+                message = "MPV exited before opening its window"
+                if detail:
+                    message += f": {detail}"
+                raise RuntimeError(message)
 
             client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             try:
@@ -381,6 +394,14 @@ class MpvOfflinePlayer:
         self._send({
             "command": ["observe_property", 1, "eof-reached"],
         })
+
+    def _read_stderr(self, stream):
+        if stream is None:
+            return
+        for line in stream:
+            line = line.strip()
+            if line:
+                self.diagnostics.append(line)
 
     def _send(self, message):
         self.client.sendall(
