@@ -10,5 +10,7 @@ This repository integrates, but does not claim ownership of:
   commercial use.
 - NVIDIA CUDA, cuDNN, and TensorRT runtime components, distributed under their
   respective NVIDIA terms.
+- [MPV](https://mpv.io/), used as the persistent offline media player and
+  distributed under its respective open-source licenses by Ubuntu.
 
 Model weights are not committed to this repository.

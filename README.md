@@ -6,8 +6,8 @@ An interactive talking-head clone built from two model families only:
 - **Ditto Talking Head** animates a source portrait from that WAV file.
 
 The default offline mode renders a complete synchronized MP4, applies a visual
-style, and plays each response in one persistent window. A lower-latency live
-mode is included for experimentation.
+style, and loads each response into one persistent MPV window. A lower-latency
+live mode is included for experimentation.
 
 ## What is in the repository
 
@@ -166,9 +166,12 @@ Qwen and Ditto diagnostic streams.
 ## Desktop playback from Docker
 
 `scripts/run-docker.sh` forwards the current X11 display and PulseAudio/PipeWire
-runtime socket, then runs the container with your host UID. On a Wayland-only
-session, XWayland must be enabled. If `DISPLAY` is unavailable, the script adds
-`--no-playback` and still saves complete videos.
+runtime socket, then runs the container with your host UID. One long-lived MPV
+process receives each completed file over a local IPC socket, so its window is
+not destroyed between responses. On a Wayland-only session, XWayland must be
+enabled. If `DISPLAY` is unavailable, the script adds `--no-playback` and still
+saves complete videos. Native installations without MPV retain GStreamer as a
+fallback player.
 
 If X11 rejects the local container connection, authorize the current local user
 according to your distribution's X11 policy and run the command again. Avoid

@@ -82,11 +82,22 @@ RUN /opt/venvs/qwen/bin/pip install \
 
 RUN /opt/venvs/qwen/bin/pip install -r requirements-qwen.txt
 
+# MPV exposes a stable JSON IPC interface and keeps one native window alive
+# while successive completed videos are loaded into it. Install it late so a
+# playback-package change does not invalidate the large CUDA/Python layers.
+RUN apt-get update \
+    && apt-get \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        install -y --no-install-recommends mpv \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . /app
 
 RUN chmod +x /app/docker/entrypoint.sh /app/scripts/*.sh \
     && test -f /app/vendors/Ditto/stream_pipeline_offline.py \
-    && test -f /usr/lib/x86_64-linux-gnu/libcudnn.so.8
+    && test -f /usr/lib/x86_64-linux-gnu/libcudnn.so.8 \
+    && command -v mpv
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["--mode", "offline"]

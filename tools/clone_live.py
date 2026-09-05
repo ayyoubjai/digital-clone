@@ -6,6 +6,7 @@ import json
 import os
 import queue
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -306,7 +307,140 @@ class Service:
             pass
 
 
-class OfflinePlayer:
+class MpvOfflinePlayer:
+
+    def __init__(self):
+        self.socket_path = Path(
+            f"/tmp/digital-clone-mpv-{os.getpid()}.sock"
+        )
+        self.socket_path.unlink(missing_ok=True)
+        self.request_id = 0
+
+        self.proc = subprocess.Popen(
+            [
+                "mpv",
+                "--idle=yes",
+                "--force-window=yes",
+                "--keep-open=yes",
+                "--osc=no",
+                "--terminal=no",
+                "--really-quiet",
+                "--hwdec=no",
+                "--audio-display=no",
+                "--title=Digital Clone",
+                f"--input-ipc-server={self.socket_path}",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        deadline = time.monotonic() + 10
+        while True:
+            if self.proc.poll() is not None:
+                raise RuntimeError("MPV exited before opening its window")
+
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                client.connect(str(self.socket_path))
+                self.client = client
+                break
+            except OSError as exc:
+                client.close()
+                if time.monotonic() >= deadline:
+                    self.proc.terminate()
+                    raise RuntimeError(
+                        "Timed out while starting persistent MPV playback"
+                    ) from exc
+                time.sleep(0.05)
+
+        self.reader = self.client.makefile("r", encoding="utf-8")
+        self._send({
+            "command": ["observe_property", 1, "eof-reached"],
+        })
+
+    def _send(self, message):
+        self.client.sendall(
+            (json.dumps(message) + "\n").encode("utf-8")
+        )
+
+    def play(self, path, duration):
+        del duration  # MPV reports the actual end of the muxed file.
+
+        if self.proc.poll() is not None:
+            raise RuntimeError("The persistent MPV window was closed")
+
+        self.request_id += 1
+        request_id = self.request_id
+        self._send({
+            "command": ["loadfile", str(Path(path).resolve()), "replace"],
+            "request_id": request_id,
+        })
+
+        loaded = False
+        playback_started = False
+
+        while True:
+            line = self.reader.readline()
+            if not line:
+                raise RuntimeError("MPV playback connection closed")
+
+            message = json.loads(line)
+            if message.get("request_id") == request_id:
+                error = message.get("error")
+                if error and error != "success":
+                    raise RuntimeError(f"MPV could not load the video: {error}")
+
+            event = message.get("event")
+            if event == "file-loaded":
+                loaded = True
+            elif event == "playback-restart" and loaded:
+                playback_started = True
+            elif (
+                event == "property-change"
+                and message.get("name") == "eof-reached"
+                and message.get("data") is True
+                and loaded
+                and playback_started
+            ):
+                return
+            elif event == "end-file" and loaded:
+                reason = message.get("reason")
+                if reason in {"eof", "stop"}:
+                    return
+                raise RuntimeError(
+                    f"MPV playback ended unexpectedly: {reason}"
+                )
+            elif event == "shutdown":
+                raise RuntimeError("The persistent MPV window was closed")
+
+    def close(self):
+        if self.proc is None:
+            return
+
+        if self.proc.poll() is None:
+            try:
+                self._send({"command": ["quit"]})
+            except OSError:
+                pass
+
+        try:
+            self.reader.close()
+            self.client.close()
+        except OSError:
+            pass
+
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.terminate()
+            self.proc.wait(timeout=3)
+
+        self.socket_path.unlink(missing_ok=True)
+        self.proc = None
+
+
+class GStreamerOfflinePlayer:
 
     def __init__(self):
         try:
@@ -741,7 +875,11 @@ startup = StartupProgress(
     enabled=not args.verbose and not args.no_progress,
 )
 offline_player = (
-    OfflinePlayer()
+    (
+        MpvOfflinePlayer()
+        if shutil.which("mpv")
+        else GStreamerOfflinePlayer()
+    )
     if args.mode == "offline" and not args.no_playback
     else None
 )
