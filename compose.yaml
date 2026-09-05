@@ -5,6 +5,7 @@ services:
       network: host
     image: digital-clone:local
     gpus: all
+    network_mode: host
     stdin_open: true
     tty: true
     ipc: host

@@ -41,6 +41,7 @@ docker_args=(
     --rm
     -it
     --gpus all
+    --network host
     --ipc host
     --user "${host_uid}:${host_gid}"
     -e HOME=/home/digital-clone
