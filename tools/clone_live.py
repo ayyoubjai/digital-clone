@@ -322,6 +322,7 @@ class MpvOfflinePlayer:
                 "--idle=yes",
                 "--force-window=yes",
                 "--keep-open=yes",
+                "--keep-open-pause=no",
                 "--osc=no",
                 "--terminal=no",
                 "--really-quiet",
@@ -394,6 +395,11 @@ class MpvOfflinePlayer:
             event = message.get("event")
             if event == "file-loaded":
                 loaded = True
+                # keep-open can leave MPV paused on the previous clip's final
+                # frame. Always start the newly loaded replacement explicitly.
+                self._send({
+                    "command": ["set_property", "pause", False],
+                })
             elif event == "playback-restart" and loaded:
                 playback_started = True
             elif (
@@ -406,8 +412,12 @@ class MpvOfflinePlayer:
                 return
             elif event == "end-file" and loaded:
                 reason = message.get("reason")
-                if reason in {"eof", "stop"}:
+                if reason == "eof":
                     return
+                if reason == "stop":
+                    # Replacing the retained prior clip can emit a delayed
+                    # stop event after the new load has begun.
+                    continue
                 raise RuntimeError(
                     f"MPV playback ended unexpectedly: {reason}"
                 )
