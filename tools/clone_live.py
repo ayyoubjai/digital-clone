@@ -342,7 +342,6 @@ class MpvOfflinePlayer:
                 "--force-window=yes",
                 "--keep-open=yes",
                 "--keep-open-pause=no",
-                "--auto-window-resize=no",
                 "--keepaspect-window=no",
                 "--image-display-duration=inf",
                 "--osc=no",
@@ -355,23 +354,29 @@ class MpvOfflinePlayer:
                 f"--input-ipc-server={self.socket_path}",
             ],
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
-        stderr_stream = self.proc.stderr
-        self.stderr_thread = threading.Thread(
-            target=self._read_stderr,
-            args=(stderr_stream,),
-            name="mpv-stderr",
-            daemon=True,
-        )
-        self.stderr_thread.start()
+        self.diagnostic_threads = []
+        for name, stream in (
+            ("stdout", self.proc.stdout),
+            ("stderr", self.proc.stderr),
+        ):
+            thread = threading.Thread(
+                target=self._read_diagnostics,
+                args=(stream,),
+                name=f"mpv-{name}",
+                daemon=True,
+            )
+            thread.start()
+            self.diagnostic_threads.append(thread)
 
         deadline = time.monotonic() + 10
         while True:
             if self.proc.poll() is not None:
-                self.stderr_thread.join(timeout=0.2)
+                for thread in self.diagnostic_threads:
+                    thread.join(timeout=0.2)
                 detail = self.diagnostics[-1] if self.diagnostics else None
                 message = "MPV exited before opening its window"
                 if detail:
@@ -397,7 +402,7 @@ class MpvOfflinePlayer:
             "command": ["observe_property", 1, "eof-reached"],
         })
 
-    def _read_stderr(self, stream):
+    def _read_diagnostics(self, stream):
         if stream is None:
             return
         for line in stream:
@@ -409,6 +414,47 @@ class MpvOfflinePlayer:
         self.client.sendall(
             (json.dumps(message) + "\n").encode("utf-8")
         )
+
+    def _request(self, command):
+        self.request_id += 1
+        request_id = self.request_id
+        self._send({
+            "command": command,
+            "request_id": request_id,
+        })
+
+        while True:
+            line = self.reader.readline()
+            if not line:
+                raise RuntimeError("MPV playback connection closed")
+
+            message = json.loads(line)
+            if message.get("event") == "shutdown":
+                raise RuntimeError("The persistent MPV window was closed")
+            if message.get("request_id") != request_id:
+                continue
+
+            error = message.get("error")
+            if error and error != "success":
+                raise RuntimeError(f"MPV command failed: {error}")
+            return message.get("data")
+
+    def _preserve_window_geometry(self):
+        """Pin the user-selected size before MPV 0.34 loads a new file."""
+        try:
+            width = self._request(["get_property", "osd-width"])
+            height = self._request(["get_property", "osd-height"])
+            if width and height:
+                self._request([
+                    "set_property",
+                    "options/geometry",
+                    f"{int(width)}x{int(height)}",
+                ])
+        except RuntimeError:
+            if self.proc.poll() is not None:
+                raise
+            # Some video outputs do not expose window dimensions. Playback is
+            # still preferable to failing the entire clone session.
 
     def show_progress(self, completed, total, label):
         width = 24
@@ -427,6 +473,7 @@ class MpvOfflinePlayer:
         if self.proc.poll() is not None:
             raise RuntimeError("The persistent MPV window was closed")
 
+        self._preserve_window_geometry()
         self.request_id += 1
         request_id = self.request_id
         self._send({
@@ -461,6 +508,7 @@ class MpvOfflinePlayer:
         if self.proc.poll() is not None:
             raise RuntimeError("The persistent MPV window was closed")
 
+        self._preserve_window_geometry()
         self.request_id += 1
         request_id = self.request_id
         self._send({
